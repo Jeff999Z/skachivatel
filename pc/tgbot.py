@@ -407,7 +407,7 @@ class Bot:
         vids = any(f.lower().endswith(C.VIDEO_EXT) for f in files)
         if vids and job.get("url") and job["what"] not in ("mp3", "audio"):
             kb.append({"text": "🎵 Ещё и MP3", "callback_data": f"again:{job['id']}:mp3"})
-        if job["where"] == "pc":
+        if job["where"] == "pc" and not job.get("incoming"):
             kb.append({"text": "📤 Прислать сюда", "callback_data": f"send:{job['id']}"})
         self.edit(job["chat"], job["mid"], f"{head}\n\n" + "\n".join(lines), [kb] if kb else None)
 
@@ -429,6 +429,14 @@ class Bot:
             return
         u = Cfg.user(uid)
         origin = msg.get("forward_origin") or {}
+        media = incoming_media(msg)
+        if media and not (origin.get("type") == "channel" and TL.user):
+            # файл прислали или переслали боту — сохраняем на ПК (без входа в Telegram — до 20 МБ)
+            d = u.get("defaults") or {}
+            mid = self.send(chat, f"📥 Сохраняю на ПК: {esc(media['name'])} ({human(media['size'])})")
+            Q.add(what="incoming", where="pc", folder=d.get("folder", 0), who=uid, chat=chat, mid=mid,
+                  title=media["name"], incoming=dict(media, chat=chat, msg=msg["message_id"]))
+            return
         if origin.get("type") == "channel" and any(msg.get(k) for k in ("video", "document", "audio", "photo", "voice")):
             ch = origin["chat"]
             tg = {"peer": ch.get("username") or ch["id"], "msg": origin["message_id"]}
@@ -585,6 +593,23 @@ class Bot:
                     log(f"бот: ошибка обработки: {e}")
             if not j.get("ok"):
                 time.sleep(5)
+
+
+def incoming_media(msg):
+    """Файл из сообщения: {file_id, size, name, ext} или None."""
+    for kind, ext in (("document", ""), ("video", ".mp4"), ("audio", ".mp3"), ("voice", ".ogg"),
+                      ("video_note", ".mp4"), ("animation", ".mp4")):
+        f = msg.get(kind)
+        if f:
+            name = f.get("file_name")
+            if not name and kind == "audio" and f.get("title"):
+                name = f"{f.get('performer') + ' - ' if f.get('performer') else ''}{f['title']}{ext}"
+            return {"file_id": f["file_id"], "size": f.get("file_size") or 0,
+                    "name": name or f"{kind}_{msg['message_id']}{ext}", "ext": ext}
+    if msg.get("photo"):
+        p = msg["photo"][-1]  # самый большой размер
+        return {"file_id": p["file_id"], "size": p.get("file_size") or 0, "name": f"photo_{msg['message_id']}.jpg", "ext": ".jpg"}
+    return None
 
 
 def queue_text():

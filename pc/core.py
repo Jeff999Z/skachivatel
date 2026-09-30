@@ -42,7 +42,8 @@ PROGRESS = re.compile(r"\[download\]\s+([\d.]+)% of\s+~?\s*([\d.]+\s*\w+)(?:.*?a
 ITEM = re.compile(r"Downloading item (\d+) of (\d+)")
 
 WHAT = {"best": "⭐ Максимум", "1080": "1080p", "720": "720p", "480": "480p",
-        "mp3": "🎵 MP3", "audio": "🎵 Оригинал", "photo": "🖼 Фото", "subs": "📝 Субтитры"}
+        "mp3": "🎵 MP3", "audio": "🎵 Оригинал", "photo": "🖼 Фото", "subs": "📝 Субтитры",
+        "incoming": "📥 Файл из Telegram"}
 WHERE = {"pc": "💻 На ПК", "tg": "📱 В Telegram", "both": "💻+📱 Оба"}
 VIDEO_EXT = (".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4v")
 
@@ -778,10 +779,10 @@ class Q:
 
     @classmethod
     def add(cls, url=None, what="best", where="pc", folder=0, who="pc", chat=None, tg=None, title=None, mid=None,
-            thumb=None):
+            thumb=None, incoming=None):
         job = {"id": f"{time.time():.4f}".replace(".", ""), "url": url, "what": what, "where": where,
                "folder": int(folder), "who": str(who), "chat": chat, "tg": tg, "title": title, "mid": mid,
-               "thumb": thumb,
+               "thumb": thumb, "incoming": incoming,
                "status": "queued", "pct": 0, "text": "в очереди", "files": [], "size": 0, "error": "",
                "created": time.strftime("%d.%m %H:%M")}
         with cls.lock:
@@ -999,6 +1000,53 @@ def explain(tail, proxy=None):
     return tail[-1][:300] if tail else "неизвестная ошибка"
 
 
+BOT_GETFILE_LIMIT = 20 * 1024 * 1024   # Bot API: бот скачивает присланные файлы до 20 МБ
+
+
+def receive_file(job, base):
+    """Файл, который прислали боту. С входом в Telegram (MTProto) — любого размера, без — до 20 МБ."""
+    import requests
+    inc = job["incoming"]
+    out = os.path.join(base, "Telegram", "Присланные боту")
+    os.makedirs(out, exist_ok=True)
+    stem, ext = os.path.splitext(safe(inc.get("name") or f"{inc['msg']}{inc.get('ext', '')}", 150))
+    path, n = os.path.join(out, stem + ext), 2
+    while os.path.exists(path):
+        path, n = os.path.join(out, f"{stem} ({n}){ext}"), n + 1
+    size = inc.get("size") or 0
+
+    def prog(done, total):
+        if job.get("cancel"):
+            raise asyncio.CancelledError()
+        Q.progress(job, done * 100 / total if total else 0, f"{human(done)} из {human(total or size)}")
+
+    if TL.bot:
+        async def go():
+            msg = await TL.bot.get_messages(int(inc["chat"]), ids=int(inc["msg"]))
+            await TL.bot.download_media(msg, file=path, progress_callback=prog)
+        try:
+            TL.run(go())
+        except asyncio.CancelledError:
+            return [], ""
+        return ([path] if os.path.exists(path) else []), ""
+    if size > BOT_GETFILE_LIMIT:
+        return [], (f"Файл {human(size)} — больше 20 МБ. Такие бот сможет забирать после входа в Telegram "
+                    "(ключи с my.telegram.org → Настройки → Вход в Telegram-аккаунт).")
+    token = Cfg.data.get("token")
+    r = requests.get(f"https://api.telegram.org/bot{token}/getFile", params={"file_id": inc["file_id"]}, timeout=60).json()
+    if not r.get("ok"):
+        return [], "Telegram не отдал файл: " + str(r.get("description"))
+    with requests.get(f"https://api.telegram.org/file/bot{token}/{r['result']['file_path']}", stream=True, timeout=300) as resp:
+        resp.raise_for_status()
+        done = 0
+        with open(path, "wb") as f:
+            for chunk in resp.iter_content(1 << 16):
+                f.write(chunk)
+                done += len(chunk)
+                prog(done, size)
+    return [path], ""
+
+
 def run_job(job):
     what, where = job["what"], job["where"]
     to_pc = where in ("pc", "both")
@@ -1009,7 +1057,9 @@ def run_job(job):
     files, tail, reason = [], [], ""
     Q.progress(job, 0, "начинаю…")
 
-    if job.get("tg") or is_tg(job.get("url")):
+    if job.get("incoming"):  # файл, присланный/пересланный боту
+        files, reason = receive_file(job, base)
+    elif job.get("tg") or is_tg(job.get("url")):
         if not TL.user:
             raise RuntimeError("Для Telegram-каналов нужен вход в аккаунт: приложение → Настройки → Telegram.")
         try:
