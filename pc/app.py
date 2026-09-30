@@ -326,6 +326,14 @@ def main():
     Cfg.load()
     Q.load()
     log("Скачиватель запущен")
+    try:  # вход, сделанный в окне входа, но ещё не сохранённый (окно закрыли раньше времени)
+        import login_window
+        missing = [s for s in login_window.SITES if s not in C.cookie_sites()]
+        got = login_window.import_from_profile(missing) if missing else []
+        if got:
+            log("Вход подхвачен из окна входа: " + ", ".join(got))
+    except Exception as e:  # noqa: BLE001
+        log(f"Вход из окна входа не прочитан: {e}")
     for f in Cfg.data["folders"]:
         os.makedirs(f["path"], exist_ok=True)
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
