@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Скачиватель</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #fff; --side: #fbfbfc; --line: #e5e7eb; --line-2: #eff1f4;
+    --text: #1c2130; --muted: #687083; --faint: #9aa1ae;
+    --accent: #3b5bdb; --accent-soft: #eaefff; --accent-ink: #fff;
+    --ok: #2f9e44; --ok-soft: #e6f6ea; --err: #e03131; --err-soft: #fdecec; --warn: #d9480f;
+    --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08); --r: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #13151a; --panel: #1b1e25; --side: #171a20; --line: #2a2f39; --line-2: #222630;
+      --text: #e6e8ee; --muted: #9aa2b1; --faint: #6b7384;
+      --accent: #7b93ff; --accent-soft: #232b48; --accent-ink: #0f1320;
+      --ok: #51cf66; --ok-soft: #1c3324; --err: #ff6b6b; --err-soft: #3a1f22; --warn: #ff8a50;
+      --shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; background: var(--bg); color: var(--text); overflow: hidden;
+         font: 14.5px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  aside { width: 230px; flex: none; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 18px 18px 14px; }
+  .logo { width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
+  .brand b { font-size: 16px; }
+  nav { padding: 4px 10px; display: flex; flex-direction: column; gap: 2px; }
+  nav button { border: 0; background: none; text-align: left; padding: 8px 12px; border-radius: 8px; display: flex; gap: 10px; align-items: center; color: var(--muted); }
+  nav button:hover { background: var(--line-2); color: var(--text); }
+  nav button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  nav .cnt { margin-left: auto; background: var(--accent); color: var(--accent-ink); font-size: 11.5px; border-radius: 10px; padding: 0 7px; }
+  .status { margin-top: auto; padding: 14px 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; background: var(--faint); }
+  .dot.on { background: var(--ok); } .dot.off { background: var(--err); }
+
+  main { flex: 1; overflow: auto; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 26px 32px 50px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 26px 0 10px; }
+  .sub { color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+  .pad { padding: 18px; }
+  textarea { width: 100%; min-height: 110px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel); outline: none; }
+  textarea:focus, input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+  input, select { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--panel); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .lbl { font-size: 12.5px; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; padding: 5px 13px; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 14px; box-shadow: var(--shadow); display: inline-flex; gap: 7px; align-items: center; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.07); color: var(--accent-ink); }
+  .btn.danger:hover { border-color: var(--err); color: var(--err); }
+  .btn.sm { padding: 3px 10px; font-size: 13px; box-shadow: none; }
+
+  .job { padding: 14px 18px; border-bottom: 1px solid var(--line-2); }
+  .job:last-child { border-bottom: 0; }
+  .job .t { display: flex; gap: 10px; align-items: baseline; }
+  .job .t b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job .m { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .bar { height: 6px; border-radius: 3px; background: var(--line-2); overflow: hidden; margin-top: 8px; }
+  .bar i { display: block; height: 100%; background: var(--accent); transition: width .5s; }
+  .pill { font-size: 11.5px; border-radius: 10px; padding: 1px 8px; background: var(--line-2); color: var(--muted); white-space: nowrap; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.err { background: var(--err-soft); color: var(--err); }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 9px 14px; border-bottom: 1px solid var(--line-2); text-align: left; vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  .code { font-size: 34px; font-weight: 700; letter-spacing: .2em; font-variant-numeric: tabular-nums; color: var(--accent); }
+  .log { font: 12.5px/1.55 Consolas, monospace; white-space: pre-wrap; padding: 14px 18px; max-height: 70vh; overflow: auto; }
+  .note { padding: 12px 14px; border-radius: 8px; background: var(--accent-soft); font-size: 13.5px; }
+  .note.warn { background: var(--err-soft); }
+  ol { padding-left: 20px; margin: 8px 0; } li { margin: 3px 0; }
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg);
+           padding: 10px 16px; border-radius: 8px; opacity: 0; transition: .2s; pointer-events: none; z-index: 9; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .muted { color: var(--muted); } .faint { color: var(--faint); }
+  .qr { background: #fff; padding: 10px; border-radius: 10px; flex: none; }
+  .qr svg { width: 220px; height: 220px; display: block; }
+  #ask { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 20; }
+  .askcard { background: var(--panel); border-radius: 14px; padding: 22px 24px; max-width: 460px; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+  code { background: var(--line-2); padding: 1px 6px; border-radius: 4px; }
+  a { color: var(--accent); cursor: pointer; }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg></div><b>Скачиватель</b></div>
+  <nav id="nav"></nav>
+  <div class="status" id="status"></div>
+</aside>
+<main><div class="wrap" id="view"></div></main>
+<div class="toast" id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const post = (p, b = {}) => fetch(p, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)}).then(r => r.json());
+const human = n => { n = +n || 0; for (const u of ["Б", "КБ", "МБ", "ГБ"]) { if (n < 1024 || u === "ГБ") return (u === "Б" || u === "КБ" ? n.toFixed(0) : n.toFixed(1)) + " " + u; n /= 1024; } };
+function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2800); }
+const WHERE = {pc: "💻 ПК", tg: "📱 Telegram", both: "💻+📱"};
+
+let S = null, tab = new URLSearchParams(location.search).get("tab") || localStorage.getItem("tab") || "add", form = {what: null, folder: null}, code = null, tgStep = null;
+const TABS = [["add", "⬇️", "Скачать"], ["queue", "⏳", "Очередь"], ["hist", "🗂", "История"], ["phone", "📱", "Телефон"],
+              ["people", "👥", "Люди (бот)"], ["folders", "📁", "Папки"], ["settings", "⚙️", "Настройки"], ["log", "📜", "Журнал"]];
+
+async function refresh() {
+  try { S = await fetch("/api/state").then(r => r.json()); } catch { return; }
+  if (form.what === null) { form.what = S.pc_defaults.what; form.folder = S.pc_defaults.folder; }
+  renderNav();
+  if (!document.activeElement || !["TEXTAREA", "INPUT", "SELECT"].includes(document.activeElement.tagName)) render();
+  else if (tab === "queue" || tab === "log") render();
+}
+function go(t) { tab = t; localStorage.setItem("tab", t); renderNav(); render(); }
+function renderNav() {
+  const act = S.jobs.length;
+  $("#nav").innerHTML = TABS.map(([k, i, n]) => `<button class="${tab === k ? "on" : ""}" onclick="go('${k}')">${i} ${n}${k === "queue" && act ? `<span class="cnt">${act}</span>` : ""}</button>`).join("");
+  const b = S.bot, t = S.tg;
+  $("#status").innerHTML = `
+    <div><span class="dot ${b.running ? "on" : "off"}"></span>Бот: ${b.running ? "@" + esc(b.username) : (b.token ? "не запущен" : "нет ключа")}</div>
+    <div><span class="dot ${t.user ? "on" : ""}"></span>Telegram: ${t.user ? esc(t.user) : "вход не выполнен"}</div>
+    <div><span class="dot ${t.big ? "on" : ""}"></span>Файлы в чат: ${t.big ? "до 2 ГБ" : "до 50 МБ"}</div>`;
+}
+function render() {
+  const v = $("#view");
+  ({add: viewAdd, queue: viewQueue, hist: viewHist, phone: viewPhone, people: viewPeople, folders: viewFolders, settings: viewSettings, log: viewLog})[tab](v);
+  renderAsk();
+}
+// запрос «телефон хочет подключиться» — поверх любой вкладки
+function renderAsk() {
+  let box = $("#ask");
+  const p = (S.phone.pending || [])[0];
+  if (!p) { if (box) box.remove(); return; }
+  if (!box) { box = document.createElement("div"); box.id = "ask"; document.body.appendChild(box); }
+  box.innerHTML = `<div class="askcard"><b>📱 «${esc(p.name)}» хочет подключиться</b>
+    <div class="muted" style="margin:6px 0 12px">Ключ телефона: <code>${esc(p.fp)}</code>. Разрешайте, только если это ваш телефон и вы только что отсканировали QR.</div>
+    <div class="row"><button class="btn primary" onclick="post('/api/phone/answer',{nonce:'${p.nonce}',ok:true}).then(refresh)">Разрешить</button>
+    <button class="btn danger" onclick="post('/api/phone/answer',{nonce:'${p.nonce}',ok:false}).then(refresh)">Отклонить</button></div></div>`;
+}
+
+// ── Телефон ──
+function viewPhone(v) {
+  const P = S.phone;
+  v.innerHTML = `<h1>Телефон</h1><div class="sub">Приложение «Скачиватель» для Android: качает прямо на телефон, а может отдать задачу этому ПК и получить готовый файл.</div>
+    <div class="card pad" style="margin-top:16px">${P.pairing ? `
+      <div class="row" style="align-items:flex-start;gap:24px">
+        <div class="qr">${P.qr}</div>
+        <div><b>Отсканируйте в приложении на телефоне</b> («Подключить ПК» → «Сканировать QR»)
+          <div class="muted" style="margin:10px 0 4px">или введите вручную:</div>
+          <div>Метка ПК: <span class="code" style="font-size:22px">${esc(P.id)}</span></div>
+          <div>Код: <span class="code" style="font-size:22px">${esc(P.code)}</span> <span class="faint">· новый через ${P.left} с</span></div>
+          <div class="faint" style="font-size:12.5px;margin-top:10px">Телефон и ПК должны быть в одной сети Wi-Fi. Адрес ПК: ${esc(P.ips.join(", ") || "не найден")}</div>
+          <div class="row" style="margin-top:14px"><button class="btn" onclick="post('/api/phone/pair',{on:false}).then(refresh)">Закрыть</button></div>
+        </div></div>`
+      : `<div class="row"><button class="btn primary" onclick="post('/api/phone/pair',{on:true}).then(refresh)">📱 Подключить телефон</button>
+          <span class="faint" style="font-size:12.5px">Появится QR-код. Код меняется каждые 30 секунд и по сети не передаётся.</span></div>`}</div>
+    <h2>Подключённые телефоны</h2>
+    <div class="card">${P.devices.length ? `<table>${P.devices.map(d => `<tr><td><b>${esc(d.name)}</b><div class="faint" style="font-size:12px">с ${esc(d.added || "?")}${d.seen ? " · был на связи " + esc(d.seen) : ""}</div></td>
+      <td style="text-align:right"><button class="btn sm danger" onclick="if(confirm('Отключить «${esc(d.name)}»?'))post('/api/phone/remove',{id:'${d.id}'}).then(refresh)">Отключить</button></td></tr>`).join("")}</table>`
+      : `<div class="empty">Пока ни одного. Установите приложение на телефон (APK на странице проекта) и нажмите «Подключить телефон».</div>`}</div>`;
+}
+
+// ── Скачать ──
+function viewAdd(v) {
+  const keep = $("#links") ? $("#links").value : "";
+  v.innerHTML = `<h1>Скачать</h1><div class="sub">Вставьте одну или несколько ссылок — каждая на своей строке или через пробел.</div>
+    <div class="card pad" style="margin-top:16px">
+      <textarea id="links" placeholder="https://vk.com/video…&#10;https://rutube.ru/video/…&#10;https://t.me/канал/123"></textarea>
+      <div class="lbl">Что скачать</div>
+      <div class="chips">${Object.entries(S.what).map(([k, n]) => `<button class="chip ${form.what === k ? "on" : ""}" onclick="form.what='${k}';render()">${esc(n)}</button>`).join("")}</div>
+      <div class="lbl">Куда на компьютере</div>
+      <div class="chips">${S.folders.map((f, i) => `<button class="chip ${form.folder === i ? "on" : ""}" title="${esc(f.path)}" onclick="form.folder=${i};render()">📁 ${esc(f.name)}</button>`).join("")}
+        <button class="chip" onclick="go('folders')">＋ папка</button></div>
+      <div class="row" style="margin-top:18px"><button class="btn primary" onclick="addLinks()">⬇️ Скачать</button>
+        <span class="faint" style="font-size:12.5px">YouTube и Instagram — только при включённом VPN</span></div>
+    </div>
+    ${S.jobs.length ? `<h2>Сейчас качается</h2><div class="card">${S.jobs.slice(0, 3).map(jobRow).join("")}</div>` : ""}`;
+  $("#links").value = keep;
+}
+async function addLinks() {
+  const text = $("#links").value;
+  const r = await post("/api/add", {text, what: form.what, folder: form.folder});
+  if (!r.added) return toast("Не вижу ссылок");
+  $("#links").value = ""; toast(`Добавлено в очередь: ${r.added}`); refresh();
+}
+function jobRow(j) {
+  const st = {queued: "в очереди", running: "качается", done: "готово", error: "ошибка", cancelled: "отменено"}[j.status];
+  return `<div class="job"><div class="t"><b title="${esc(j.url || "")}">${esc(j.title || j.url || "Пост Telegram")}</b>
+      <span class="pill">${esc(S.what[j.what] || j.what)} → ${WHERE[j.where]}</span>
+      <button class="btn sm danger" onclick="post('/api/cancel',{id:'${j.id}'}).then(refresh)">Отменить</button></div>
+    <div class="m">${[st, j.text && j.text !== st ? esc(j.text) : ""].filter(Boolean).join(" · ")} · от: ${esc(j.who_name)}</div>
+    <div class="bar"><i style="width:${j.status === "running" ? Math.max(2, j.pct) : 0}%"></i></div></div>`;
+}
+
+// ── Очередь ──
+function viewQueue(v) {
+  v.innerHTML = `<h1>Очередь</h1><div class="sub">Качается по одной ссылке, остальные ждут. Здесь же видно ссылки из Telegram.</div>
+    <div class="card" style="margin-top:16px">${S.jobs.length ? S.jobs.map(jobRow).join("") : `<div class="empty">Очередь пуста</div>`}</div>`;
+}
+
+// ── История ──
+function viewHist(v) {
+  v.innerHTML = `<h1>История</h1><div class="sub">Последние загрузки. Клик по названию — открыть файл, 📂 — показать в папке.</div>
+    <div class="card" style="margin-top:16px">${S.history.length ? `<table><tr><th>Что</th><th>Кто</th><th>Размер</th><th>Когда</th><th></th></tr>
+    ${S.history.map(h => {
+      const f = (h.files || [])[0];
+      return `<tr><td><a onclick="${f ? `post('/api/open',{path:${JSON.stringify(f).replace(/"/g, "&quot;")}})` : ""}">${esc(h.title || h.url || "—")}</a>
+        <div class="faint" style="font-size:12px">${h.status === "done" ? `${(h.files || []).length} файл(ов) · ${esc(S.what[h.what] || h.what)} → ${WHERE[h.where]}` : `<span class="pill err">${esc(h.error || h.status)}</span>`}</div></td>
+        <td class="muted">${esc(h.who_name)}</td><td class="muted">${h.size ? human(h.size) : ""}</td><td class="muted">${esc(h.finished || "")}</td>
+        <td style="white-space:nowrap">${f ? `<button class="btn sm" onclick="post('/api/open',{path:${JSON.stringify(f).replace(/"/g, "&quot;")},select:1})">📂</button>` : ""}
+        ${h.status === "error" && h.url ? `<button class="btn sm" onclick="post('/api/retry',{id:'${h.id}'}).then(()=>toast('Снова в очереди'))">🔁</button>` : ""}</td></tr>`;
+    }).join("")}</table>` : `<div class="empty">Пока ничего не скачано</div>`}</div>`;
+}
+
+// ── Люди ──
+function viewPeople(v) {
+  v.innerHTML = `<h1>Люди</h1><div class="sub">Кто может пользоваться ботом. Первый подключившийся — владелец 👑.</div>
+    <div class="card" style="margin-top:16px">${S.users.length ? `<table>${S.users.map(u => `<tr><td>${esc(u.name)}${u.owner ? " 👑" : ""}</td>
+      <td class="muted">с ${esc(u.added || "?")}</td><td style="text-align:right">${u.owner ? "" : `<button class="btn sm danger" onclick="rmUser('${u.id}','${esc(u.name)}')">Удалить</button>`}</td></tr>`).join("")}</table>`
+      : `<div class="empty">Пока никого. Создайте код ниже и отправьте его боту.</div>`}</div>
+    <h2>Добавить человека</h2>
+    <div class="card pad"><div class="row"><button class="btn primary" onclick="newCode()">Создать код</button>
+      ${code ? `<span class="code">${code}</span>` : ""}</div>
+      <ol class="muted"><li>Нажмите «Создать код».</li><li>Человек открывает бота ${S.bot.username ? "<b>@" + esc(S.bot.username) + "</b>" : ""} в Telegram и нажимает «Запустить».</li>
+      <li>Отправляет боту этот код. Код действует 10 минут и срабатывает один раз.</li></ol></div>`;
+}
+async function newCode() { code = (await post("/api/code")).code; render(); }
+async function rmUser(id, name) { if (confirm(`Удалить доступ для «${name}»?`)) { await post("/api/user/remove", {id}); refresh(); } }
+
+// ── Папки ──
+function viewFolders(v) {
+  v.innerHTML = `<h1>Папки</h1><div class="sub">Места для сохранения — их видно и в Telegram-боте (кнопки «📁»).</div>
+    <div class="card" style="margin-top:16px"><table>${S.folders.map((f, i) => `<tr><td><b>📁 ${esc(f.name)}</b><div class="faint" style="font-size:12.5px">${esc(f.path)}</div></td>
+      <td style="text-align:right;white-space:nowrap"><button class="btn sm" onclick="post('/api/open',{path:${JSON.stringify(f.path).replace(/"/g, "&quot;")}})">Открыть</button>
+      ${S.folders.length > 1 ? `<button class="btn sm danger" onclick="post('/api/folders/remove',{i:${i}}).then(refresh)">Убрать</button>` : ""}</td></tr>`).join("")}</table></div>
+    <h2>Добавить папку</h2>
+    <div class="card pad"><div class="row"><input id="fname" placeholder="Название, например «Лекции»" style="width:260px">
+      <button class="btn" onclick="pickFolder()">Выбрать папку…</button><span id="fpath" class="muted"></span></div>
+      <div class="row" style="margin-top:12px"><button class="btn primary" onclick="addFolder()">Добавить</button></div></div>`;
+}
+let picked = "";
+async function pickFolder() { toast("Откроется окно выбора папки…"); picked = (await post("/api/folders/pick")).path; $("#fpath").textContent = picked || "не выбрано"; }
+async function addFolder() {
+  if (!picked) return toast("Сначала выберите папку");
+  await post("/api/folders/add", {name: $("#fname").value.trim(), path: picked}); picked = ""; toast("Папка добавлена"); refresh();
+}
+
+// ── Настройки ──
+function viewSettings(v) {
+  const t = S.tg;
+  v.innerHTML = `<h1>Настройки</h1>
+    <h2>Telegram-бот</h2>
+    <div class="card pad">${S.bot.running ? `<div>✅ Бот работает: <b>@${esc(S.bot.username)}</b></div>` : `<div class="note warn">Бот не работает — вставьте ключ от @BotFather.</div>`}
+      <div class="row" style="margin-top:12px"><input id="tok" type="password" placeholder="${S.bot.token ? "Ключ сохранён — вставьте новый, чтобы заменить" : "Ключ бота от @BotFather"}" style="flex:1;min-width:280px">
+      <button class="btn" onclick="saveToken()">Сохранить</button></div></div>
+
+    <h2>Вход в Telegram-аккаунт</h2>
+    <div class="card pad">${t.user ? `<div>✅ Вход выполнен: <b>${esc(t.user)}</b></div>
+        <div class="muted" style="margin-top:6px">Работает: скачивание из каналов (и закрытых, где вы состоите), отправка файлов в чат до 2 ГБ.</div>
+        <div class="row" style="margin-top:12px"><button class="btn sm danger" onclick="if(confirm('Выйти из аккаунта?'))post('/api/tg/logout').then(refresh)">Выйти</button></div>`
+      : tgLoginForm()}</div>
+
+    <h2>VPN для заблокированных сайтов</h2>
+    <div class="card pad">${S.proxy ? `✅ Найден прокси вашего VPN: <b>${esc(S.proxy)}</b> — через него идут YouTube, Instagram, X и сайты, которые не открываются напрямую.`
+      : `<div class="note warn">VPN не найден. Включите VPN (Happ и т.п.) — YouTube и Instagram без него не откроются.</div>`}</div>
+
+    <h2>Вход на сайты</h2>
+    <div class="card pad">
+      <div>${S.cookie_sites.length ? `✅ Есть вход: <b>${S.cookie_sites.map(esc).join(", ")}</b>` : "Входов пока нет."}</div>
+      <div class="muted" style="margin-top:6px">Большинству сайтов вход не нужен: YouTube, VK Видео, Rutube, Дзен, OK, TikTok, Pinterest, SoundCloud качаются и так. Вход нужен только здесь:</div>
+      <table style="margin:10px 0 4px">${[["instagram", "Instagram", "фото, карусели, профили, истории (видео и Reels — и без входа)"],
+          ["twitter", "X (Twitter)", "всё — без входа X ничего не отдаёт"],
+          ["reddit", "Reddit", "всё — без входа Reddit не пускает"],
+          ["vk", "ВКонтакте", "только закрытые группы, альбомы и истории"]].map(([k, n, why]) =>
+        `<tr><td style="padding:6px 12px 6px 0;border:0"><button class="btn ${S.cookie_sites.includes(k) ? "" : "primary"}" style="min-width:210px" onclick="siteLogin('${k}','${n}')">${S.cookie_sites.includes(k) ? "✅ " + n + " — войти заново" : "Войти в " + n}</button></td>
+         <td class="muted" style="border:0;font-size:13px">${why}</td></tr>`).join("")}</table>
+      <div class="faint" style="font-size:12.5px">Откроется настоящая страница входа сайта (через ваш VPN). Входите как обычно — пароль видит только сам сайт; программа сохраняет лишь «ключ входа». Для Instagram лучше <b>запасной аккаунт</b>.</div>
+      <details style="margin-top:12px"><summary class="muted">Или вручную — файлом cookies.txt из браузера</summary>
+      <ol class="muted"><li>В Chrome установите расширение <a onclick="window.open('https://chromewebstore.google.com/search/Get%20cookies.txt%20LOCALLY')">«Get cookies.txt LOCALLY»</a>.</li>
+        <li>Откройте нужный сайт (например, instagram.com) и войдите в свой аккаунт.</li>
+        <li>Нажмите на значок расширения → «Export» — скачается файл .txt.</li>
+        <li>Нажмите «Добавить файл» ниже и выберите его. Так можно добавить несколько сайтов по очереди.</li></ol>
+      <div class="note warn" style="margin:8px 0">Файл cookies — это доступ к вашим аккаунтам. Никому его не пересылайте; программа хранит его только на этом компьютере.</div>
+      <div class="row"><button class="btn" onclick="addCookies()">Добавить файл cookies.txt…</button></div>
+      </details>
+      ${S.cookie_sites.length ? `<div class="row" style="margin-top:10px"><button class="btn sm danger" onclick="if(confirm('Удалить все входы на сайты?'))post('/api/cookies/clear').then(refresh)">Удалить все входы</button></div>` : ""}
+    </div>
+
+    <h2>Прочее</h2>
+    <div class="card pad">
+      <label class="row"><input type="checkbox" ${S.autostart ? "checked" : ""} onchange="post('/api/autostart',{on:this.checked}).then(()=>toast('Сохранено'))"> Запускать вместе с Windows (без окна — бот всегда на связи)</label>
+      <div class="row" style="margin-top:14px"><button class="btn" ${S.updating ? "disabled" : ""} onclick="post('/api/update').then(()=>toast('Обновляю…'))">${S.updating ? "Обновляю…" : "Обновить движки скачивания"}</button>
+        <span class="faint" style="font-size:12.5px">если какой-то сайт перестал качаться</span></div>
+      <div class="row" style="margin-top:14px"><button class="btn danger" onclick="if(confirm('Выключить Скачиватель? Бот перестанет отвечать.'))post('/api/quit').then(()=>document.body.innerHTML='<div class=empty>Скачиватель выключен. Можно закрыть окно.</div>')">⏻ Выключить Скачиватель</button>
+        <span class="faint" style="font-size:12.5px">если просто закрыть окно — он продолжит работать в фоне</span></div>
+    </div>`;
+}
+function tgLoginForm() {
+  if (tgStep === "code") return `<div>Код отправлен в ваш Telegram. Введите его:</div>
+    <div class="row" style="margin-top:10px"><input id="tgcode" placeholder="Код" style="width:140px"><button class="btn primary" onclick="tgCode()">Войти</button></div>`;
+  if (tgStep === "password") return `<div>У аккаунта включена двухэтапная проверка — введите облачный пароль:</div>
+    <div class="row" style="margin-top:10px"><input id="tgpwd" type="password" style="width:240px"><button class="btn primary" onclick="tgPwd()">Войти</button></div>`;
+  return `<div class="note">Нужно для: скачивания из Telegram-каналов и отправки больших файлов (до 2 ГБ) в чат. Делается один раз.</div>
+    <ol><li>Откройте <a onclick="window.open('https://my.telegram.org/apps')">my.telegram.org</a> и войдите своим номером (код придёт в Telegram).</li>
+      <li>«API development tools» → App title: <b>Downloader</b>, Short name: <b>downloader</b>, Platform: <b>Desktop</b> → «Create application».</li>
+      <li>Скопируйте сюда <b>App api_id</b> и <b>App api_hash</b>, введите номер телефона и нажмите «Получить код».</li></ol>
+    <div class="row"><input id="apiid" placeholder="api_id" style="width:130px"><input id="apihash" placeholder="api_hash" style="flex:1;min-width:220px"></div>
+    <div class="row" style="margin-top:8px"><input id="phone" placeholder="+79001234567" style="width:200px"><button class="btn primary" onclick="tgSend()">Получить код</button></div>`;
+}
+async function siteLogin(site, name) {
+  const r = await post("/api/site_login", {site});
+  toast(r.ok ? `Открываю вход в ${name} — войдите в окне, оно закроется само` : r.error);
+}
+async function addCookies() {
+  toast("Откроется окно выбора файла…");
+  const r = await post("/api/cookies/add");
+  if (r.error) return toast(r.error);
+  if (r.ok) toast("Вход добавлен: " + (r.sites.join(", ") || "сайты не распознаны"));
+  refresh();
+}
+async function saveToken() {
+  const r = await post("/api/token", {token: $("#tok").value}); toast(r.ok ? `Бот @${r.username} запущен` : r.error); refresh();
+}
+async function tgSend() {
+  const r = await post("/api/tg/send_code", {api_id: $("#apiid").value.trim(), api_hash: $("#apihash").value.trim(), phone: $("#phone").value.trim()});
+  if (r.error) return toast("Ошибка: " + r.error); tgStep = "code"; render();
+}
+async function tgCode() {
+  const r = await post("/api/tg/code", {code: $("#tgcode").value.trim()});
+  if (r.error) return toast("Ошибка: " + r.error); tgStep = r.next === "password" ? "password" : null; if (!tgStep) toast("Вход выполнен"); refresh();
+}
+async function tgPwd() {
+  const r = await post("/api/tg/password", {password: $("#tgpwd").value});
+  if (r.error) return toast("Ошибка: " + r.error); tgStep = null; toast("Вход выполнен"); refresh();
+}
+
+// ── Журнал ──
+function viewLog(v) {
+  v.innerHTML = `<h1>Журнал</h1><div class="card log" id="logbox">${esc(S.log.join("\n"))}</div>`;
+  const b = $("#logbox"); b.scrollTop = b.scrollHeight;
+}
+
+setInterval(() => refresh(), 1500);
+refresh();
+</script>
+</body>
+</html>

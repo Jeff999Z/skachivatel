@@ -1,0 +1,11 @@
+# Скачиватель для ПК — зависимости (Python 3.11+)
+requests
+pysocks
+yt-dlp[default]
+gallery-dl
+telethon
+cryptg
+cryptography
+qrcode
+pillow
+pywebview

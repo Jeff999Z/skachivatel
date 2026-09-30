@@ -1,0 +1,47 @@
+# ── ЛИЧНЫЕ ДАННЫЕ — никогда не в репозиторий ──
+app_config.json
+app_history.json
+app_queue.json
+app_log.txt
+cookies.txt
+*.session
+*.session-journal
+tg_api.json
+bot_token.txt
+bot_config.json
+bot_history.json
+bot_queue.json
+remote_cert.pem
+remote_key.pem
+*.keystore
+!debug.keystore
+*.jks
+.env
+
+# ── сборка ──
+pc/tools/
+pc/build/dist/
+pc/build/work/
+pc/build/icon.ico
+dist/
+__pycache__/
+*.pyc
+
+# ── Android ──
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.apk
+*.aab
+
+# ── прочее ──
+.idea/
+.vscode/
+*.log
+Thumbs.db
+desktop.ini
+build_*.log
+build_done.flag

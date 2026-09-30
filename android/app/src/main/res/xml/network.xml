@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Связь с ПК — только HTTPS со своим сертификатом (проверяется отпечаток в коде, см. Pc.kt).
+     Обычный HTTP разрешён только для загрузки превью сайтов, которые его ещё используют. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
